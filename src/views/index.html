@@ -1,58 +1,209 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Payslip Mailer</title>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial;
-            padding: 30px;
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 12px;
+            background: #f4f6f8;
+            font-size: 13px;
+        }
+
+        .app {
+            margin: auto;
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 24px);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border-bottom: 2px solid #ddd;
+            background: #fafafa;
+        }
+
+        .toolbar h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 500;
+            flex: 1;
+        }
+        .toolbar span {
+            font-size: 12px;
+        }
+
+        .btn {
+            padding: 12px 18px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn.primary {
+            background: #2563eb;
+            color: #fff;
+            border-color: #2563eb;
+        }
+
+        .btn.success {
+            background: #16a34a;
+            color: #fff;
+            border-color: #16a34a;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .file-name {
+            font-size: 12px;
+            color: #555;
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .table-wrapper {
+            flex: 1;
+            overflow: auto;
         }
 
         table {
             border-collapse: collapse;
-            margin-top: 20px;
             width: 100%;
+            min-width: 900px;
         }
 
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 8px;
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #f1f3f5;
+            border-bottom: 1px solid #ccc;
+            padding: 6px 8px;
             text-align: left;
+            font-weight: bold;
+            font-size: 12px;
+            white-space: nowrap;
         }
 
-        th {
-            background: #f4f4f4;
+        tbody td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
         }
 
-        button {
-            padding: 8px 16px;
-            margin-top: 10px;
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .waiting {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .sending {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .sent {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .failed {
+            background: #fee2e2;
+            color: #991b1b;
         }
     </style>
 </head>
 
 <body>
 
-    <h2>Payslip Mailer</h2>
+    <div class="app">
+        <!-- TOP BAR -->
+        <div class="toolbar">
+            <h1>Payslip Mailer</h1>
+            <span id="fileName" class="file-name"></span>
+            <input type="file" id="file" accept=".xlsx" hidden />
 
-    <input type="file" id="file" accept=".xlsx" />
-    <br />
-    <button onclick="upload()">Upload Excel</button>
-    <button onclick="sendEmails()">Send Emails</button>
+            <button class="btn primary" onclick="triggerFile()">Select Excel</button>
 
-    <table id="table"></table>
+            <button id="uploadBtn" class="btn" onclick="upload()" disabled>
+                Upload
+            </button>
+
+            <button id="sendBtn" class="btn success" onclick="sendEmails()" disabled>
+                Send Emails
+            </button>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-wrapper">
+            <table id="table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
 
     <script>
         let employees = [];
 
+        const fileInput = document.getElementById("file");
+        const fileName = document.getElementById("fileName");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const sendBtn = document.getElementById("sendBtn");
+
+        function triggerFile() {
+            fileInput.click();
+        }
+
+        fileInput.addEventListener("change", () => {
+            if (!fileInput.files.length) return;
+
+            fileName.textContent = fileInput.files[0].name;
+            uploadBtn.disabled = false;
+        });
+
         async function upload() {
-            const file = document.getElementById("file").files[0];
-            if (!file) return alert("Select a file");
+            const file = fileInput.files[0];
+            if (!file) return;
 
             const formData = new FormData();
             formData.append("file", file);
+
+            uploadBtn.disabled = true;
 
             const res = await fetch("/upload", {
                 method: "POST",
@@ -61,41 +212,53 @@
 
             employees = await res.json();
             renderTable(employees);
+
+            if (employees.length) {
+                sendBtn.disabled = false;
+            }
         }
 
         function renderTable(rows) {
-            const table = document.getElementById("table");
-            table.innerHTML = "";
+            const thead = document.querySelector("#table thead");
+            const tbody = document.querySelector("#table tbody");
+
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
 
             if (!rows.length) return;
 
             const headers = Object.keys(rows[0]);
 
-            table.innerHTML +=
+            thead.innerHTML =
                 "<tr>" +
                 headers.map(h => `<th>${h}</th>`).join("") +
                 "<th>Status</th></tr>";
 
             rows.forEach(row => {
-                table.innerHTML +=
+                const id = row["Employee Email"];
+                tbody.innerHTML +=
                     "<tr>" +
                     headers.map(h => `<td>${row[h] ?? ""}</td>`).join("") +
-                    `<td id="${row["Employee Email"]}">Waiting</td>` +
+                    `<td><span id="${id}" class="status waiting">Waiting</span></td>` +
                     "</tr>";
             });
         }
 
         function sendEmails() {
+            sendBtn.disabled = true;
             fetch("/send", { method: "POST" });
         }
 
-        // ===== Live updates =====
+        // ===== LIVE STATUS =====
         const evtSource = new EventSource("/events");
 
         evtSource.onmessage = (e) => {
             const { email, status } = JSON.parse(e.data);
-            const cell = document.getElementById(email);
-            if (cell) cell.innerText = status;
+            const el = document.getElementById(email);
+            if (!el) return;
+
+            el.textContent = status;
+            el.className = "status " + status.toLowerCase();
         };
     </script>
 

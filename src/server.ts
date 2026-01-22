@@ -3,6 +3,8 @@ import path from "path";
 import multer from "multer";
 import XLSX from "xlsx";
 import { transporter } from "./mailer";
+import { generatePayslip } from "./payslip-template";
+import { numberToWords } from "./number-to-words";
 
 const app = express();
 const PORT = 3000;
@@ -27,12 +29,15 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]!];
-    const employees = XLSX.utils.sheet_to_json(sheet!);
+    const parsedEmp = XLSX.utils.sheet_to_json(sheet!);
 
-    employeesCache = employees;
-
+    const employees = parsedEmp.map((emp: any) => ({
+        ...emp as any,
+        "Net Pay (In Words)": numberToWords(Number(emp['Net Pay']))
+    }))
     console.log("Employees cached:", employeesCache.length);
 
+    employeesCache = employees;
     res.json(employees);
 });
 
@@ -55,7 +60,6 @@ function sendEvent(data: any) {
     });
 }
 
-// ===== Send emails =====
 app.post("/send", async (_req, res) => {
     if (!employeesCache.length) {
         return res.status(400).json({ error: "No employees loaded" });
@@ -67,17 +71,15 @@ app.post("/send", async (_req, res) => {
     for (const emp of employeesCache) {
         const email = emp["Employee Email"];
 
+        const html = generatePayslip(emp);
+
         sendEvent({ email, status: "Sending" });
 
         try {
             const info = await transporter.sendMail({
                 to: email,
-                subject: "Payslip",
-                html: `
-          <h3>Payslip</h3>
-          <p>Hello ${emp["Employee Name"]}</p>
-          <p>Net Pay: ₹${emp["Net Pay"]}</p>
-        `
+                subject: `Payslip – ${emp["Payslip Month"]}`,
+                html
             });
             sendEvent({ email, status: "Sent" });
             console.log("info", info)
