@@ -82,7 +82,8 @@ app.post("/send", async (_req, res) => {
                 html
             });
             sendEvent({ email, status: "Sent" });
-            console.log("info", info)
+            console.log(`✅ Email sent → ${email}`);
+            console.log("Detailed Info", info);
         } catch (err) {
             console.error("Mail failed:", email, err);
             sendEvent({ email, status: "Failed" });
@@ -91,5 +92,5 @@ app.post("/send", async (_req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
 });
