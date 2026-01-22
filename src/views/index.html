@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Payslip Mailer</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 30px;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #f4f4f4;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Payslip Mailer</h2>
+
+    <input type="file" id="file" accept=".xlsx" />
+    <br />
+    <button onclick="upload()">Upload Excel</button>
+    <button onclick="sendEmails()">Send Emails</button>
+
+    <table id="table"></table>
+
+    <script>
+        let employees = [];
+
+        async function upload() {
+            const file = document.getElementById("file").files[0];
+            if (!file) return alert("Select a file");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            employees = await res.json();
+            renderTable(employees);
+        }
+
+        function renderTable(rows) {
+            const table = document.getElementById("table");
+            table.innerHTML = "";
+
+            if (!rows.length) return;
+
+            const headers = Object.keys(rows[0]);
+
+            table.innerHTML +=
+                "<tr>" +
+                headers.map(h => `<th>${h}</th>`).join("") +
+                "<th>Status</th></tr>";
+
+            rows.forEach(row => {
+                table.innerHTML +=
+                    "<tr>" +
+                    headers.map(h => `<td>${row[h] ?? ""}</td>`).join("") +
+                    `<td id="${row["Employee Email"]}">Waiting</td>` +
+                    "</tr>";
+            });
+        }
+
+        function sendEmails() {
+            fetch("/send", { method: "POST" });
+        }
+
+        // ===== Live updates =====
+        const evtSource = new EventSource("/events");
+
+        evtSource.onmessage = (e) => {
+            const { email, status } = JSON.parse(e.data);
+            const cell = document.getElementById(email);
+            if (cell) cell.innerText = status;
+        };
+    </script>
+
+</body>
+
+</html>
