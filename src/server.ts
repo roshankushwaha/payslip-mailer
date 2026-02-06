@@ -1,10 +1,11 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import multer from "multer";
 import XLSX from "xlsx";
-import { transporter } from "./mailer";
-import { generatePayslip } from "./payslip-template";
-import { numberToWords } from "./number-to-words";
+import { transporter } from "./mailer.js";
+import { generatePayslip } from "./payslip-template.js";
+import { numberToWords } from "./number-to-words.js";
 
 const app = express();
 const PORT = 3000;
@@ -18,7 +19,7 @@ let clients: express.Response[] = [];
 
 // ===== Serve UI =====
 app.get("/", (_req, res) => {
-    res.sendFile(path.join(import.meta.dir, "views/index.html"));
+    res.sendFile(path.join(process.cwd(), "src/views/index.html"));
 });
 
 // ===== Upload & parse Excel =====
@@ -35,9 +36,8 @@ app.post("/upload", upload.single("file"), (req, res) => {
         ...emp as any,
         "Net Pay (In Words)": numberToWords(Number(emp['Net Pay']))
     }))
-    console.log("Employees cached:", employeesCache.length);
-
     employeesCache = employees;
+    console.log("Employees cached:", employeesCache.length);
     res.json(employees);
 });
 
